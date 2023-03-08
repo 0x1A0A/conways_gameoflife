@@ -1,7 +1,10 @@
 #include "raylib.h"
 #include "raygui.h"
 #include <time.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <thread>
+#include <atomic>
 
 #define SIZE 2
 
@@ -12,6 +15,11 @@ const int ch = screenHeight/SIZE;
 
 int cell[cw][ch][2] = {0};
 int world = 0;
+
+static float timePass = 0.f;
+static float updateTime = 1.0f;
+std::atomic_bool done = false;
+static bool process = true;
 
 void draw_grid_2d() {
 	// draw vertical line
@@ -30,9 +38,28 @@ int neightbors(int x, int y, int world) {
 		int _y = test_case[i*2 + 1] + y;
 
 		if ( _x >= 0 && _x < cw && _y >=0 && _y <ch)
-		count += cell[_x][_y][world];
+			count += cell[_x][_y][world];
 	}
 	return count;
+}
+
+void thread_cell_life() {
+	while (!done) {
+		if (process && timePass > updateTime) {
+			for (int i{0}; i<cw; ++i) {
+				for (int j{0}; j<ch; ++j) {
+					int count_neightbor = neightbors(i,j,world); 
+					if (cell[i][j][world])
+						cell[i][j][!world] = (count_neightbor == 2 || count_neightbor == 3) ? 1:0;
+					else
+						cell[i][j][!world] = (count_neightbor == 3) ? 1:0;
+				}
+			}
+
+			world = !world;
+			timePass = 0.f;
+		}
+	}
 }
 
 int main(int argc, char **argv) {
@@ -59,12 +86,9 @@ int main(int argc, char **argv) {
 	float zoom = 2.f;
 	float moveSpeed = 100.f;
 
-	bool process = false;
-
 	Vector2 look = camera.target;
-	float timePass = 0.f;
 
-	float updateTime = 1.0f;
+	std::thread worker1{ thread_cell_life };
 
 	while(!WindowShouldClose()) {
 		Vector2 mwheel = GetMouseWheelMoveV();
@@ -73,7 +97,7 @@ int main(int argc, char **argv) {
 
 		camera.zoom += ( zoom - camera.zoom )/6;
 
-		process = IsKeyPressed(KEY_SPACE) ? !process: process;
+		process = IsKeyPressed(KEY_SPACE) ? !process: (bool)process;
 
 		float movex = IsKeyDown(KEY_D) - IsKeyDown(KEY_A);
 		float movey = IsKeyDown(KEY_S) - IsKeyDown(KEY_W);
@@ -86,26 +110,11 @@ int main(int argc, char **argv) {
 		camera.target.x += ( look.x - camera.target.x)/4;
 		camera.target.y += ( look.y - camera.target.y)/4;
 
-		updateTime = IsKeyPressed(KEY_ONE) ? 1.f : updateTime;
-		updateTime = IsKeyPressed(KEY_TWO) ? 0.5f : updateTime;
-		updateTime = IsKeyPressed(KEY_THREE) ? 0.2f : updateTime;
-		updateTime = IsKeyPressed(KEY_FOUR) ? 0.1f : updateTime;
+		updateTime = IsKeyPressed(KEY_ONE) ? 1.f : (float) updateTime;
+		updateTime = IsKeyPressed(KEY_TWO) ? 0.5f : (float) updateTime;
+		updateTime = IsKeyPressed(KEY_THREE) ? 0.2f : (float) updateTime;
+		updateTime = IsKeyPressed(KEY_FOUR) ? 0.1f : (float) updateTime;
 
-		if (process && timePass > updateTime) {
-			for (int i{0}; i<cw; ++i) {
-				for (int j{0}; j<ch; ++j) {
-					int count_neightbor = neightbors(i,j,world); 
-					if (cell[i][j][world]) {
-						cell[i][j][!world] = (count_neightbor == 2 || count_neightbor == 3) ? 1:0;
-					} else {
-						cell[i][j][!world] = (count_neightbor == 3) ? 1:0;
-					}
-				}
-			}
-
-			world = !world;
-			timePass = 0.f;
-		}
 
 		BeginDrawing();
 		BeginMode2D(camera);
@@ -124,10 +133,12 @@ int main(int argc, char **argv) {
 		DrawFPS(10,10);
 		EndDrawing();
 
-		timePass += GetFrameTime();
+		timePass = (float)timePass + GetFrameTime();
 	}
 
 	CloseWindow();
+	done = true;
+	worker1.join();
 
 	return 0;
 }

@@ -5,5 +5,7 @@ file(
 
 add_executable(App ${APP_SRC})
 
-target_link_libraries( App ${OpenCV_LIBS} raylib raygui )
+find_package(Threads)
+
+target_link_libraries( App raylib raygui Threads::Threads)
 
