@@ -6,6 +6,7 @@
 #include <thread>
 #include <atomic>
 #include <string.h>
+#include "raymath.h"
 
 #define SIZE 2
 
@@ -122,12 +123,18 @@ int main(int argc, char **argv) {
 
 	std::thread worker1{ thread_cell_life };
 
+	Color ghostColor = Fade(BLUE, 0.7);
+
+	bool mouse_Lbutton_available = true;
+
 	while(!WindowShouldClose()) {
 		Vector2 mwheel = GetMouseWheelMoveV();
 		zoom += mwheel.y != 0 ?
 			mwheel.y > 0 ? .1 : -.1 : 0;
 
 		camera.zoom += ( zoom - camera.zoom )/6;
+
+		camera.zoom = Clamp(camera.zoom, 0.1, 10);
 
 		process = IsKeyPressed(KEY_SPACE) ? !process: process;
 
@@ -163,15 +170,29 @@ int main(int argc, char **argv) {
 				}
 			}
 
+			// UI
+
+
 		}
 		EndMode2D();
+		Rectangle sliderBound{0};
+		sliderBound.width = 100;
+		sliderBound.height = 10;
+		sliderBound.x = screenWidth - 100 - 5;
+		sliderBound.y = 15;
+		float updatePersec = 1.0f/updateTime;
+		updatePersec = GuiSliderBar(sliderBound, "", "", updatePersec, 1, 60);
+		if (1.0f/updatePersec != updateTime) {
+			mouse_Lbutton_available = false;
+		}
+		updateTime = 1.0f/updatePersec;
 
 		// mouse debugger
 		Vector2 cm_mouse = GetScreenToWorld2D(GetMousePosition(), camera);
 		int i = (int)cm_mouse.x/SIZE, j = (int)cm_mouse.y/SIZE;
 
 		char t[100];
-		sprintf(t, "x %d, y %d",i,j);
+		sprintf(t, "fps %d -- x %d, y %d",GetFPS(),i,j);
 
 		DrawText( t, 10, 10, 10, BLUE);
 
@@ -180,16 +201,22 @@ int main(int argc, char **argv) {
 					cell[world][j][i] >> 1, cell[world][j][i] & 1 ? "alive" : "empty", "?");
 			DrawText( t, 10, 20, 10, BLUE);
 			BeginMode2D(camera);
-			DrawRectangleLines(i*SIZE, j*SIZE, SIZE, SIZE, RAYWHITE);
+			DrawRectangleLines(i*SIZE, j*SIZE, SIZE, SIZE, ghostColor);
 			EndMode2D();
-			if ( IsMouseButtonPressed(MOUSE_BUTTON_LEFT) ) {
-				cell[world][j][i] ^= 1;
-				add_neightbor(i,j,world,cell[world][j][i] & 1 ? 1:-1);
+			if ( mouse_Lbutton_available ) 
+			if ( IsMouseButtonDown(MOUSE_BUTTON_LEFT) && !(cell[world][j][i] & 1) ) {
+				cell[world][j][i] |= 1;
+				add_neightbor(i,j,world,1);
+			}
+			if ( IsMouseButtonDown(MOUSE_BUTTON_RIGHT) && (cell[world][j][i] & 1) ) {
+				cell[world][j][i] &= 0xfe;
+				add_neightbor(i,j,world,-1);
 			}
 		}
 		EndDrawing();
 
 		timePass = timePass + GetFrameTime();
+		if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) mouse_Lbutton_available = true;
 	}
 
 	CloseWindow();
