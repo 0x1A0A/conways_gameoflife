@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <thread>
 #include <atomic>
+#include <string.h>
 
 #define SIZE 2
 
@@ -13,7 +14,7 @@ const int screenHeight = 480;
 const int cw = screenWidth/SIZE;
 const int ch = screenHeight/SIZE;
 
-int cell[cw][ch][2] = {0};
+int cell[2][ch][cw] = {0};
 int world = 0;
 
 static float timePass = 0.f;
@@ -38,7 +39,7 @@ int neightbors(int x, int y) {
 		int _y = test_case[i*2 + 1] + y;
 
 		if ( _x >= 0 && _x < cw && _y >= 0 && _y <ch)
-			count += cell[_x][_y][world] & 1 ? 1 : 0;
+			count += cell[world][_y][_x] & 1 ? 1 : 0;
 	}
 	return count;
 }
@@ -50,10 +51,7 @@ void add_neightbor(int x, int y, int w, int value) {
 		int _y = test_case[i*2 + 1] + y;
 
 		if ( _x >= 0 && _x < cw && _y >= 0 && _y <ch) {
-			//int count = cell[_x][_y][w] >> 1;
-			//count += value;
-			//count = count < 0 ? 0 : count > 8 ? 8 : count;
-			cell[_x][_y][w] += 2 * value;
+			cell[w][_y][_x] += 2 * value;
 		}
 	}
 }
@@ -61,22 +59,19 @@ void add_neightbor(int x, int y, int w, int value) {
 void thread_cell_life() {
 	while (!done) {
 		if (process && timePass > updateTime) {
-			for (int i{0}; i<cw; ++i) {
-				for (int j{0}; j<ch; ++j) {
-					cell[i][j][!world] = cell[i][j][world];
-				}
-			}
+			
+			memcpy( cell + !world, cell + world, sizeof(cell)/2);
 
 			for (int i{0}; i<cw; ++i) {
 				for (int j{0}; j<ch; ++j) {
-					int count_neightbor = cell[i][j][world] >> 1;
-					if (cell[i][j][world] & 1) {
+					int count_neightbor = cell[world][j][i] >> 1;
+					if (cell[world][j][i] & 1) {
 						if (!(count_neightbor == 2 || count_neightbor == 3)) {
-							cell[i][j][!world] &= 0xfe;
+							cell[!world][j][i] &= 0xfe;
 							add_neightbor(i,j,!world,-1);
 						}
 					} else if(count_neightbor == 3) {
-						cell[i][j][!world] |= 1;
+						cell[!world][j][i] |= 1;
 						add_neightbor(i,j,!world,1);
 					}
 				}
@@ -88,6 +83,23 @@ void thread_cell_life() {
 	}
 }
 
+void clean_cell() {
+	for (int i{0}; i<cw; ++i)
+		for (int j{0}; j<ch; ++j)
+			cell[world][j][i] = cell[!world][j][i] = 0;
+}
+
+void random_cell() {
+	for (int i{0}; i<cw; ++i)
+		for (int j{0}; j<ch; ++j)
+			cell[world][j][i] = cell[!world][j][i] = rand()%2;
+	for (int i{0}; i<cw; ++i)
+		for (int j{0}; j<ch; ++j) {
+			int count_neightbor = neightbors(i,j);
+			cell[world][j][i] = cell[!world][j][i] |= count_neightbor << 1;
+		}
+}
+
 int main(int argc, char **argv) {
 	Camera2D camera = {0};
 	InitWindow(screenWidth, screenHeight, "raylib game of life");
@@ -95,16 +107,6 @@ int main(int argc, char **argv) {
 	SetTraceLogLevel(LOG_ALL);
 	srand(time(NULL));
 
-	// random start cell
-	for (int i{0}; i<cw; ++i)
-		for (int j{0}; j<ch; ++j)
-			cell[i][j][world] = cell[i][j][!world] = rand()%2;
-
-	for (int i{0}; i<cw; ++i)
-		for (int j{0}; j<ch; ++j) {
-			int count_neightbor = neightbors(i,j);
-			cell[i][j][world] = cell[i][j][!world] |= count_neightbor << 1;
-		}
 
 	camera.target.x = 640/2;
 	camera.target.y = 480/2;
@@ -145,15 +147,18 @@ int main(int argc, char **argv) {
 		updateTime = IsKeyPressed(KEY_THREE) ? 0.2f : updateTime;
 		updateTime = IsKeyPressed(KEY_FOUR) ? 0.1f : updateTime;
 
+		if(IsKeyPressed(KEY_R)) random_cell();
+		if(IsKeyPressed(KEY_C)) clean_cell();
 
 		BeginDrawing();
 		BeginMode2D(camera);
 		{
 			ClearBackground(BLACK);
+			DrawRectangleLines(-1,-1,screenWidth+1,screenHeight+1, GRAY);
 			// draw_grid_2d();
 			for (int i{0}; i<cw; ++i) {
 				for (int j{0}; j<ch; ++j) {
-					if (cell[i][j][world] & 1)
+					if (cell[world][j][i] & 1)
 						DrawRectangle(i*SIZE, j*SIZE, SIZE, SIZE, RAYWHITE);
 				}
 			}
@@ -164,22 +169,22 @@ int main(int argc, char **argv) {
 		// mouse debugger
 		Vector2 cm_mouse = GetScreenToWorld2D(GetMousePosition(), camera);
 		int i = (int)cm_mouse.x/SIZE, j = (int)cm_mouse.y/SIZE;
-			
+
 		char t[100];
 		sprintf(t, "x %d, y %d",i,j);
 
 		DrawText( t, 10, 10, 10, BLUE);
-		
+
 		if ( i >= 0 && i<cw && j>=0 && j<ch ) {
 			sprintf(t, "neightbor %d, state now %s -- next %s",
-					cell[i][j][world] >> 1, cell[i][j][world] & 1 ? "alive" : "empty", "?");
+					cell[world][j][i] >> 1, cell[world][j][i] & 1 ? "alive" : "empty", "?");
 			DrawText( t, 10, 20, 10, BLUE);
 			BeginMode2D(camera);
 			DrawRectangleLines(i*SIZE, j*SIZE, SIZE, SIZE, RAYWHITE);
 			EndMode2D();
 			if ( IsMouseButtonPressed(MOUSE_BUTTON_LEFT) ) {
-				cell[i][j][world] ^= 1;
-				add_neightbor(i,j,world,cell[i][j][world] & 1 ? 1:-1);
+				cell[world][j][i] ^= 1;
+				add_neightbor(i,j,world,cell[world][j][i] & 1 ? 1:-1);
 			}
 		}
 		EndDrawing();
