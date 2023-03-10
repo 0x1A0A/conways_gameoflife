@@ -2,10 +2,8 @@
 #include "raygui.h"
 #include "raymath.h"
 #include <time.h>
-#include <stdio.h>
-#include <string.h>
-#include <atomic>
 
+// default screen size
 const int screenWidth = 640;
 const int screenHeight = 480;
 
@@ -124,18 +122,26 @@ int main(int argc, char **argv) {
 		updateTime = IsKeyPressed(KEY_THREE) ? 0.2f : updateTime;
 		updateTime = IsKeyPressed(KEY_FOUR) ? 0.1f : updateTime;
 
+		if (IsKeyDown(KEY_LEFT_CONTROL)) {
+			float t = 1.0/updateTime+IsKeyPressed(KEY_EQUAL)-IsKeyPressed(KEY_MINUS);
+			updateTime = 1.0/t;
+		}
+		
+		updateTime = Clamp(updateTime, 0, 120);
+
 		BeginDrawing();
 		ClearBackground(BLACK);
 		{
 			BeginMode2D(camera);
-			DrawRectangleLines(-1,-1,screenWidth+2,screenHeight+2, GRAY);
+			DrawRectangleLines(-1,-1,screenWidth+2,screenHeight+2, Fade(GRAY, 0.2));
 			DrawTextureRec(target[world].texture, source, {0,0}, WHITE);
 			EndMode2D();
 		}
 
 		DrawRectangle(5,5,180,35, Fade(BLACK, 0.8));
 		DrawText(TextFormat("FPS - %d, X[%d] Y[%d]", GetFPS(), i, j), 10,10,10, BLUE);
-		DrawText(TextFormat("SPEED - %4f/s", 1.f/updateTime), 10,25,10, BLUE);
+		DrawText(TextFormat("SPEED - %4.f/s", 1.f/updateTime), 10,25,10, BLUE);
+		DrawText(TextFormat("[[%s]]",process ? "RUNING":"PAUSE"), 100,25,10, process ? RAYWHITE:GRAY);
 		EndDrawing();
 
 		timePass += GetFrameTime();
