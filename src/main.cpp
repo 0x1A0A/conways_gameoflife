@@ -26,6 +26,12 @@ void randomcell(RenderTexture2D &texture) {
 	EndTextureMode();
 }
 
+void clearcell(RenderTexture2D &texture) {
+	BeginTextureMode(texture);
+	ClearBackground(BLACK);
+	EndTextureMode();
+}
+
 void automaton(RenderTexture2D &src, RenderTexture2D &target, Shader &gameoflife) {
 	BeginTextureMode(target);
 	ClearBackground(BLACK);
@@ -64,16 +70,20 @@ int main(int argc, char **argv) {
 
 	Vector2 look = camera.target;
 
-	randomcell(target[world]);
-
 	Rectangle source{0,0,(float)screenWidth, -(float)screenHeight};
-	
+
+	int time_uniform = GetShaderLocation(gameoflife, "TIME");
+	float running_time;
 	while(!WindowShouldClose()) {
+		running_time = GetTime();
+		SetShaderValue(gameoflife, time_uniform, &running_time, SHADER_UNIFORM_FLOAT);
 		if (process && timePass >= updateTime) {
 			automaton(target[world],target[!world],gameoflife);
 			world = !world;
 			timePass = 0;
 		}
+		if (IsKeyPressed(KEY_R)) randomcell(target[world]);
+		if (IsKeyPressed(KEY_C)) clearcell(target[world]);
 		Vector2 mwheel = GetMouseWheelMoveV();
 		zoom += mwheel.y != 0 ?
 			mwheel.y > 0 ? .1 : -.1 : 0;
@@ -95,20 +105,37 @@ int main(int argc, char **argv) {
 		camera.target.x += ( look.x - camera.target.x)/4;
 		camera.target.y += ( look.y - camera.target.y)/4;
 
+		Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), camera);
+		int i = mouse.x, j = mouse.y;
+		
+		if (CheckCollisionPointRec(mouse, {0,0,screenWidth,screenHeight})) {
+			BeginTextureMode(target[world]);
+			if ( IsMouseButtonDown(MOUSE_BUTTON_LEFT) ) {
+				DrawPixel(i,j, WHITE);	
+			}
+			if ( IsMouseButtonDown(MOUSE_BUTTON_RIGHT) ) {
+				DrawPixel(i,j, BLACK);	
+			}
+			EndTextureMode();
+		}
+
 		updateTime = IsKeyPressed(KEY_ONE) ? 1.f : updateTime;
 		updateTime = IsKeyPressed(KEY_TWO) ? 0.5f : updateTime;
 		updateTime = IsKeyPressed(KEY_THREE) ? 0.2f : updateTime;
 		updateTime = IsKeyPressed(KEY_FOUR) ? 0.1f : updateTime;
 
 		BeginDrawing();
-		ClearBackground(WHITE);
+		ClearBackground(BLACK);
 		{
 			BeginMode2D(camera);
+			DrawRectangleLines(-1,-1,screenWidth+2,screenHeight+2, GRAY);
 			DrawTextureRec(target[world].texture, source, {0,0}, WHITE);
 			EndMode2D();
 		}
 
-		DrawText(TextFormat("%d", GetFPS()), 10,10,10, BLUE);
+		DrawRectangle(5,5,180,35, Fade(BLACK, 0.8));
+		DrawText(TextFormat("FPS - %d, X[%d] Y[%d]", GetFPS(), i, j), 10,10,10, BLUE);
+		DrawText(TextFormat("SPEED - %4f/s", 1.f/updateTime), 10,25,10, BLUE);
 		EndDrawing();
 
 		timePass += GetFrameTime();
