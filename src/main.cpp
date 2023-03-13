@@ -13,14 +13,14 @@ static float timePass = 0.f;
 static float updateTime = 1.0f;
 static bool process = false;
 
+double all_fps = 0;
+
 void randomcell(RenderTexture2D &texture) {
 	BeginTextureMode(texture);
 	ClearBackground(BLACK);
-	for (int i{0}; i<screenWidth; ++i) {
-		for (int j{0}; j<screenHeight; ++j) {
-			if ( GetRandomValue(0,1) ) DrawPixel(i,j, WHITE);	
-		}
-	}
+	for (int i{0}; i<screenWidth; ++i)
+		for (int j{0}; j<screenHeight; ++j)
+			if (!GetRandomValue(0,1)) DrawPixel(i,j, WHITE);
 	EndTextureMode();
 }
 
@@ -74,6 +74,7 @@ int main(int argc, char **argv) {
 	float running_time;
 	while(!WindowShouldClose()) {
 		running_time = GetTime();
+		if (running_time > 30) break;
 		SetShaderValue(gameoflife, time_uniform, &running_time, SHADER_UNIFORM_FLOAT);
 		if (process && timePass >= updateTime) {
 			automaton(target[world],target[!world],gameoflife);
@@ -83,10 +84,9 @@ int main(int argc, char **argv) {
 		if (IsKeyPressed(KEY_R)) randomcell(target[world]);
 		if (IsKeyPressed(KEY_C)) clearcell(target[world]);
 		Vector2 mwheel = GetMouseWheelMoveV();
-		zoom += mwheel.y != 0 ?
-			mwheel.y > 0 ? .1 : -.1 : 0;
+		zoom += (mwheel.y != 0 ? mwheel.y > 0 ? .1 : -.1 : 0) * !IsKeyDown(KEY_LEFT_CONTROL);
 
-		camera.zoom += ( zoom - camera.zoom )/6;
+		camera.zoom += (zoom-camera.zoom)/6;
 
 		camera.zoom = Clamp(camera.zoom, 0.1, 20);
 
@@ -100,18 +100,18 @@ int main(int argc, char **argv) {
 			look.y += moveSpeed	* movey * GetFrameTime();
 		}
 
-		camera.target.x += ( look.x - camera.target.x)/4;
-		camera.target.y += ( look.y - camera.target.y)/4;
+		camera.target.x += (look.x - camera.target.x)/4;
+		camera.target.y += (look.y - camera.target.y)/4;
 
 		Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), camera);
 		int i = mouse.x, j = mouse.y;
 		
 		if (CheckCollisionPointRec(mouse, {0,0,screenWidth,screenHeight})) {
 			BeginTextureMode(target[world]);
-			if ( IsMouseButtonDown(MOUSE_BUTTON_LEFT) ) {
+			if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
 				DrawPixel(i,j, WHITE);	
 			}
-			if ( IsMouseButtonDown(MOUSE_BUTTON_RIGHT) ) {
+			if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
 				DrawPixel(i,j, BLACK);	
 			}
 			EndTextureMode();
@@ -123,7 +123,9 @@ int main(int argc, char **argv) {
 		updateTime = IsKeyPressed(KEY_FOUR) ? 0.1f : updateTime;
 
 		if (IsKeyDown(KEY_LEFT_CONTROL)) {
-			float t = 1.0/updateTime+IsKeyPressed(KEY_EQUAL)-IsKeyPressed(KEY_MINUS);
+			float t = 1.0/updateTime+
+				((IsKeyPressed(KEY_EQUAL)||mwheel.y > 0)-(IsKeyPressed(KEY_MINUS)||mwheel.y<0));
+			t = t <= 0 ? 1 : t;
 			updateTime = 1.0/t;
 		}
 		
@@ -141,16 +143,20 @@ int main(int argc, char **argv) {
 		DrawRectangle(5,5,180,35, Fade(BLACK, 0.8));
 		DrawText(TextFormat("FPS - %d, X[%d] Y[%d]", GetFPS(), i, j), 10,10,10, BLUE);
 		DrawText(TextFormat("SPEED - %4.f/s", 1.f/updateTime), 10,25,10, BLUE);
-		DrawText(TextFormat("[[%s]]",process ? "RUNING":"PAUSE"), 100,25,10, process ? RAYWHITE:GRAY);
+		DrawText(TextFormat("Since Run - %4.2f/s", GetTime()), 10,40,10, BLUE);
+		DrawText(TextFormat("[[%s]]",process ? "RUNNING":"PAUSE"), 100,25,10, process ? RAYWHITE:GRAY);
 		EndDrawing();
 
 		timePass += GetFrameTime();
+		all_fps += 1;
 	}
 
 	UnloadRenderTexture(target[0]);
 	UnloadRenderTexture(target[1]);
 	UnloadShader(gameoflife);
 	CloseWindow();
+
+	TraceLog(LOG_INFO, TextFormat("Average FPS >> %f", all_fps/running_time));
 
 	return 0;
 }
