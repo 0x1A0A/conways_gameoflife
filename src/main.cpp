@@ -54,9 +54,9 @@ int main(int argc, char **argv) {
 	Camera2D camera = {0};
 	Shader gameoflife = LoadShader("shaders/gameoflife.vert", "shaders/gameoflife.frag");
 
-	int uf = GetShaderLocation(gameoflife, "resolutionNormalized");
-	Vector2 resNorm{1.0f/screenWidth, 1.0f/screenHeight};
-	SetShaderValue(gameoflife, uf, &resNorm, SHADER_UNIFORM_VEC2);
+	int uf = GetShaderLocation(gameoflife, "resolution");
+	Vector2 resolution{screenWidth, screenHeight};
+	SetShaderValue(gameoflife, uf, &resolution, SHADER_UNIFORM_VEC2);
 
 	camera.target.x = 640/2;
 	camera.target.y = 480/2;
@@ -74,7 +74,6 @@ int main(int argc, char **argv) {
 	float running_time;
 	while(!WindowShouldClose()) {
 		running_time = GetTime();
-		if (running_time > 30) break;
 		SetShaderValue(gameoflife, time_uniform, &running_time, SHADER_UNIFORM_FLOAT);
 		if (process && timePass >= updateTime) {
 			automaton(target[world],target[!world],gameoflife);

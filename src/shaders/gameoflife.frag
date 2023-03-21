@@ -3,14 +3,14 @@ in vec2 fragTexCoord;
 in vec4 fragColor;
 
 uniform sampler2D texture0;
-uniform vec2 resolutionNormalized;
+uniform vec2 resolution;
 uniform float TIME;
 
 out vec4 finalColor;
 
 void main() {
-	vec2 uv = fragTexCoord;
-	vec2 nr = resolutionNormalized;
+	vec2 nr = 1.0/resolution;
+	vec2 uv = gl_FragCoord.xy/resolution;
 	vec4 Color = texture(texture0, uv)*fragColor;
 
 	bool alive = Color.r == 1;
