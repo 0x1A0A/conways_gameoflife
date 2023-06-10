@@ -136,6 +136,9 @@ int main(int argc, char **argv) {
 			BeginMode2D(camera);
 			DrawRectangleLines(-1,-1,screenWidth+2,screenHeight+2, Fade(GRAY, 0.2));
 			DrawTextureRec(target[world].texture, source, {0,0}, WHITE);
+			if (CheckCollisionPointRec(mouse, {0,0,screenWidth,screenHeight})) {
+				DrawPixel(mouse.x, mouse.y, BLUE);
+			}
 			EndMode2D();
 		}
 

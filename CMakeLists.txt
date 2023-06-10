@@ -4,6 +4,7 @@ project(gameoflife VERSION 0.01)
 
 set(CMAKE_BUILD_TYPE RELEASE)
 set(OpenGL_GL_PREFERENCE LEGACY)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory(vendors/raylib-4.5.0)
 add_subdirectory(vendors/raygui-3.2/projects/CMake)
