@@ -1,0 +1,6 @@
+[submodule "vendors/raylib"]
+	path = vendors/raylib
+	url = git@github.com:raysan5/raylib.git
+[submodule "vendors/raygui"]
+	path = vendors/raygui
+	url = git@github.com:raysan5/raygui.git
